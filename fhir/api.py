@@ -5,11 +5,12 @@ import fhir_error
 from fhir_spec import RESOURCES
 from query_builder import InvalidQuery
 from models import Access, Session, Client, commit_buffers
-import ttam
+# import ttam
 import util
 from functools import partial, wraps
 from datetime import datetime
 import re
+import basespace
 
 api = Blueprint('api', __name__)
 
@@ -59,7 +60,7 @@ def protected(view):
             # has access
             # try to acquire a 23andme API client since the request
             # might be accessing 23andme's API
-            ttam.acquire_client()
+            basespace.acquire_client()
             return view(*args, **kwargs)
 
     return protected_view
@@ -154,8 +155,8 @@ def cleanup(resp):
     return resp
 
 
-@api.errorhandler(ttam.TTAMOAuthError)
-def handle_ttam_no_client(_):
+@api.errorhandler(basespace.BaseSpaceOAuthError)
+def handle_bs_no_client(_):
     '''
     If a request is attempting to access a 23andme resource and gets an error.
     (e.g. the user hasn't imported resources 23andme),

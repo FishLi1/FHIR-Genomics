@@ -13,6 +13,7 @@ from urlparse import urljoin
 from urllib import urlencode
 from datetime import datetime
 from lxml import etree
+import basespace
 
 # TODO: support composite search param
 
@@ -92,7 +93,7 @@ class FHIRBundle(object):
     '''
     Represent a bundle in FHIR
     ''' 
-    def __init__(self, query, request, version_specific=False, ttam_resource=None):
+    def __init__(self, query, request, version_specific=False, basespace_resource=None):
         self.api_base = get_api_base()
         self.request_url = request.url
         self.data_format = request.format
@@ -104,7 +105,7 @@ class FHIRBundle(object):
                 offset(request.offset).all()
         self.resource_count = query.count() 
 
-        if ttam_resource is not None:
+        if basespace_resource is not None:
             # 23andMe resource(s) are being requested here.
             # We need to figure out the paging properties for 23andme resources.
             # We preserve determinism here by lining all internal resources before
@@ -114,14 +115,14 @@ class FHIRBundle(object):
             # So a 4-offset is the same as a 0-offset of 23andMe resources,
             # and a 1-offset is also a 0-offset of 23andMe. And so forth).  
             num_resources = len(self.resources) 
-            ttam_offset = (request.offset - self.resource_count
+            basespace_offset = (request.offset - self.resource_count
                     if request.offset >= self.resource_count
                     else 0)
-            ttam_limit = request.count - num_resources
-            ttam_resources, ttam_count = ttam.get_many(ttam_resource, request.args, ttam_offset, ttam_limit)
-            self.resource_count += ttam_count 
+            basespace_limit = request.count - num_resources
+            basespace_resources, basespace_count = basespace.get_many(basespace_resource, request.args, basespace_offset, basespace_limit)
+            self.resource_count += basespace_count
             if num_resources < request.count:
-                self.resources.extend(ttam_resources)
+                self.resources.extend(basespace_resources)
 
         self.next_url = (request.get_next_url()
                          if len(self.resources) + request.offset < self.resource_count
@@ -208,21 +209,21 @@ def handle_create(request, resource_type):
     return resource.as_response(request, created=True)
 
 
-def handle_read(request, resource_type, resource_id):
-    '''
-    handle FHIR read operation
-    '''
-    if resource_type in ('Patient', 'Sequence') and resource_id.startswith('ttam_'):
-        resource = ttam.get_one(resource_type, resource_id)
-    else:
-        resource = find_latest_resource(resource_type, resource_id, owner_id=request.authorizer.email)
-
-    if resource is None:
-        return fhir_error.inform_not_found() 
-    elif not resource.visible:
-        return fhir_error.inform_gone()
-
-    return resource.as_response(request)
+# def handle_read(request, resource_type, resource_id):
+#     '''
+#     handle FHIR read operation
+#     '''
+#     if resource_type in ('Patient', 'Sequence') and resource_id.startswith('ttam_'):
+#         resource = basespace.get_one(resource_type, resource_id)
+#     else:
+#         resource = find_latest_resource(resource_type, resource_id, owner_id=request.authorizer.email)
+#
+#     if resource is None:
+#         return fhir_error.inform_not_found()
+#     elif not resource.visible:
+#         return fhir_error.inform_gone()
+#
+#     return resource.as_response(request)
 
 
 def handle_update(request, resource_type, resource_id):
@@ -251,11 +252,11 @@ def handle_search(request, resource_type):
     '''
     query_builder = QueryBuilder(request.authorizer)
     search_query = query_builder.build_query(resource_type, request.args)
-    ttam_resource = None
+    basespace_resource = None
     if (resource_type in ('Patient', 'Sequence') and
-            g.ttam_client is not None):
-        ttam_resource = resource_type 
-    resp_bundle = FHIRBundle(search_query, request, ttam_resource=ttam_resource)
+            g.basespace_client is not None):
+        basespace_resource = resource_type
+    resp_bundle = FHIRBundle(search_query, request, basespace_resource=basespace_resource)
     return resp_bundle.as_response()
 
 
