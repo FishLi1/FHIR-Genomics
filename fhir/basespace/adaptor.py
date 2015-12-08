@@ -14,8 +14,8 @@ from ..query_builder import COORD_RE, InvalidQuery
 from util import slice_, get_snps, get_coord
 
 # we use this to distinguish any 23andMe resource from internal resources
-PREFIX = 'bs_'
-PREFIX_LEN = len(PREFIX)
+# PREFIX = 'bs_'
+# PREFIX_LEN = len(PREFIX)
 
 
 def acquire_client():
