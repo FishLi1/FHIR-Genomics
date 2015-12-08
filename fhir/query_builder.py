@@ -97,7 +97,7 @@ def make_quantity_pred(param_data, param_val):
         val_preds = [
             SearchParam.comparator.in_('<', '<='),
             SearchParam.comparator.quantity < value]
-    elif '>' in comparison:
+    elif '>' in comparator:
         val_preds = [
             SearchParam.comparator.in_('>', '>='),
             SearchParam.comparator.quantity > value]
@@ -191,6 +191,30 @@ def make_coord_pred(coord):
             Resource.start <= end,
             Resource.end >= start) 
 
+def make_number_pred(param_data, param_val):
+    '''
+    Compile a number search parameter into a SQL predicate
+    '''
+    number = NUMBER_RE.match(param_val)
+    if not number:
+        raise InvalidQuery
+
+    try:
+        value = float(number.group('number'))
+        comparator = number.group('comparator')
+        if comparator is None:
+            pred = (SearchParam.quantity == value)
+        elif comparator == '<':
+            pred = (SearchParam.quantity < value)
+        elif comparator == '<=':
+            pred = (SearchParam.quantity <= value)
+        elif comparator == '>':
+            pred = (SearchParam.quantity > value)
+        elif comparator == '>=':
+            pred = (SearchParam.quantity >= value)
+        return pred
+    except ValueError:
+        raise InvalidQuery
 
 class QueryBuilder(object):
     def __init__(self, resource_owner):

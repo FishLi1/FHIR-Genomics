@@ -4,13 +4,13 @@ from models import BaseSpaceClient, BaseSpaceOAuthError
 from ..ui import require_login, get_session
 from ..database import db
 
-bs = Blueprint('basespace', __name__)
+basespace = Blueprint('basespace', __name__)
 
-bs.before_request(get_session)
+basespace.before_request(get_session)
 
 NOT_ALLOWED = Response(status='405')
 
-@bs.route('/')
+@basespace.route('/')
 def acquire_client():
     '''
     Get the client from database
@@ -24,7 +24,7 @@ def acquire_client():
         return redirect('/basespace/import')
     return
 
-@bs.route('/import')
+@basespace.route('/import')
 @require_login
 def import_from_bs():
     '''
@@ -43,7 +43,7 @@ def import_from_bs():
     return redirect('%s?%s'% (bs_config['auth_uri'], redirect_params))
 
 
-@bs.route('/recv_redirect')
+@basespace.route('/recv_redirect')
 @require_login
 def recv_bs_auth_code():
     '''
@@ -59,15 +59,15 @@ def recv_bs_auth_code():
     return bs_client
 
 
-@bs.route('/clear')
+@basespace.route('/clear')
 @require_login
 def clear_bs_data():
     '''
     removed the BaseSpace client associated with user in session
     '''
-    ttam_client = BaseSpaceClient.query.get(request.session.user.email)
-    if ttam_client is None:
+    bs_client = BaseSpaceClient.query.get(request.session.user.email)
+    if bs_client is None:
         return NOT_ALLOWED
-    db.session.delete(ttam_client)
+    db.session.delete(bs_client)
     db.session.commit()
     return redirect('/') 

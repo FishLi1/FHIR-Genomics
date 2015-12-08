@@ -8,7 +8,7 @@ from error import BaseSpaceOAuthError
 from ..database import db
 
 TOKEN_URI = 'https://api.basespace.illumina.com/v1pre3/oauthv2/token'
-API_BASE = 'https://api.basespace.illumina.com/v1pre3/users/current'
+API_BASE = 'https://api.basespace.illumina.com/v1pre3/'
 
 def assert_good_resp(resp):
     '''
@@ -108,14 +108,29 @@ class BaseSpaceClient(db.Model):
         return {'Authorization': 'Bearer '+self.access_token} 
 
     @api_call
-    def get_patients(self):
+    def get_resources(self, para1, para2,data):
         '''
         get all profiles owned by the user who authorized this client
         '''
         auth_header = self._get_header()
-        resp = requests.get(self.api_base + 'current?access_token={%s}' % self.access_token, headers = auth_header)
+        try:
+            resp = requests.get('%s/%s/%s' % (self.api_base, para1,para2 ) )
+        except:
+            resp = requests.post('%s/%s/%s' % (self.api_base, para1,para2 ), postdata = data, header = auth_header)
         assert_good_resp(resp)
         return resp.json()
 
-    def get_profiles(self):
-        return self.profiles.split()
+
+
+    @api_call
+    def get_resource(self, para1,data):
+        '''
+        get all profiles owned by the user who authorized this client
+        '''
+        auth_header = self._get_header()
+        try:
+            resp = requests.get('%s/%s' % (self.api_base, para1))
+        except:
+            resp = requests.post('%s/%s' % (self.api_base, para1), postdata = data, header = auth_header)
+        assert_good_resp(resp)
+        return resp.json()

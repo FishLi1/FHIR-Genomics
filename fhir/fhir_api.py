@@ -7,23 +7,22 @@ from util import json_response, xml_response, xml_bundle_response, xml_to_json, 
 from fhir_spec import SPECS, REFERENCE_TYPES
 from query_builder import QueryBuilder
 from indexer import index_resource
-import ttam
+import basespace
 import json
 from urlparse import urljoin
 from urllib import urlencode
 from datetime import datetime
 from lxml import etree
-import basespace
 
 # TODO: support composite search param
 
 PAGE_SIZE = 50
-BUNDLE_TITLE = 'SMART Genomics Atom Feed' 
+BUNDLE_TITLE = 'SMART Genomics Atom Feed'
 
 def find_latest_resource(resource_type, resource_id, owner_id):
     '''
     Find the latest resource given it's type, id, and id of it's owner.
-    Requiring owner's id here because we don't want people touching other people's resources 
+    Requiring owner's id here because we don't want people touching other people's resources
     '''
     return (Resource
             .query
@@ -52,7 +51,7 @@ class FHIRRequest(object):
 
         if request.method in ('POST', 'PUT'):
             # regardless of format of uploaded data
-            # we process it as a json object (technically a Python Dict) 
+            # we process it as a json object (technically a Python Dict)
             if self.format == 'xml':
                 dataroot = etree.fromstring(request.data)
                 # tag of an etree element = {whatever xmlns value is}[element name]
@@ -89,10 +88,10 @@ class FHIRRequest(object):
         return self._get_url(is_prev=True)
 
 
-class FHIRBundle(object): 
+class FHIRBundle(object):
     '''
     Represent a bundle in FHIR
-    ''' 
+    '''
     def __init__(self, query, request, version_specific=False, basespace_resource=None):
         self.api_base = get_api_base()
         self.request_url = request.url
@@ -103,7 +102,7 @@ class FHIRBundle(object):
         self.resources = query.\
                 limit(request.count).\
                 offset(request.offset).all()
-        self.resource_count = query.count() 
+        self.resource_count = query.count()
 
         if basespace_resource is not None:
             # 23andMe resource(s) are being requested here.
@@ -113,20 +112,21 @@ class FHIRBundle(object):
             # think about it like this ...---, with '.' being internal, and '-' being 23andMe.
             # Here we have three internal resources and 3 23andMe resources.
             # So a 4-offset is the same as a 0-offset of 23andMe resources,
-            # and a 1-offset is also a 0-offset of 23andMe. And so forth).  
-            num_resources = len(self.resources) 
+            # and a 1-offset is also a 0-offset of 23andMe. And so forth).
+            num_resources = len(self.resources)
             basespace_offset = (request.offset - self.resource_count
                     if request.offset >= self.resource_count
                     else 0)
             basespace_limit = request.count - num_resources
-            basespace_resources, basespace_count = basespace.get_many(basespace_resource, request.args, basespace_offset, basespace_limit)
+            basespace_resources, basespace_count = basespace.api.\
+                bs_handle_read(basespace_resource, request.args, basespace_offset, basespace_limit)
             self.resource_count += basespace_count
             if num_resources < request.count:
                 self.resources.extend(basespace_resources)
 
         self.next_url = (request.get_next_url()
                          if len(self.resources) + request.offset < self.resource_count
-                         else None) 
+                         else None)
         self.prev_url = (request.get_prev_url()
                          if request.offset - request.count >= 0
                          else None)
@@ -209,21 +209,21 @@ def handle_create(request, resource_type):
     return resource.as_response(request, created=True)
 
 
-# def handle_read(request, resource_type, resource_id):
-#     '''
-#     handle FHIR read operation
-#     '''
-#     if resource_type in ('Patient', 'Sequence') and resource_id.startswith('ttam_'):
-#         resource = basespace.get_one(resource_type, resource_id)
-#     else:
-#         resource = find_latest_resource(resource_type, resource_id, owner_id=request.authorizer.email)
-#
-#     if resource is None:
-#         return fhir_error.inform_not_found()
-#     elif not resource.visible:
-#         return fhir_error.inform_gone()
-#
-#     return resource.as_response(request)
+def handle_read(request, resource_type, resource_id):
+    '''
+    handle FHIR read operation
+    '''
+    if resource_type in ('Patient', 'Sequence') :
+        resource = basespace.api.bs_handle_read(resource_type, resource_id)
+    else:
+        resource = find_latest_resource(resource_type, resource_id, owner_id=request.authorizer.email)
+
+    if resource is None:
+        return fhir_error.inform_not_found()
+    elif not resource.visible:
+        return fhir_error.inform_gone()
+
+    return resource.as_response(request)
 
 
 def handle_update(request, resource_type, resource_id):
@@ -253,7 +253,7 @@ def handle_search(request, resource_type):
     query_builder = QueryBuilder(request.authorizer)
     search_query = query_builder.build_query(resource_type, request.args)
     basespace_resource = None
-    if (resource_type in ('Patient', 'Sequence') and
+    if (resource_type in ('genomics', 'projects') and
             g.basespace_client is not None):
         basespace_resource = resource_type
     resp_bundle = FHIRBundle(search_query, request, basespace_resource=basespace_resource)

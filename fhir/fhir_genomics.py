@@ -3,6 +3,7 @@ from api import api
 from ui import ui
 from oauth import oauth
 from ttam.view import ttam
+from basespace.view import basespace
 from database import db
 from argparse import ArgumentParser
 
@@ -19,6 +20,7 @@ def register_blueprints(app):
     app.register_blueprint(oauth, url_prefix='/auth')
     app.register_blueprint(ui)
     app.register_blueprint(ttam, url_prefix='/ttam')
+    app.register_blueprint(basespace, url_prefix='/basespace')
 
 
 def create_app(config):

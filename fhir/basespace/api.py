@@ -1,12 +1,13 @@
 import datetime
 from flask import Response
-from adaptor import get_resource, search_sets
+from adaptor import get_resource, get_resources
 from functools import partial
 from fhir.models import Access
 from ..util import json_to_xml
 import error
 import json
 from urlparse import urljoin
+import requests
 
 BS_JSON_MIMETYPE = 'application/json'
 json_response = partial(Response, mimetype=BS_JSON_MIMETYPE)
@@ -28,7 +29,7 @@ def verify_access(request, resource_type, access_type):
         # not a user but an OAuth consumer
         # check database and verify if the consumer has access
         request.authorizer = request.client.authorizer
-        if datetime.now() > request.client.expire_at:
+        if datetime.datetime.now() > request.client.expire_at:
             return False
         accesses = Access.query.filter_by(
             client_code=request.client.code,
@@ -37,6 +38,8 @@ def verify_access(request, resource_type, access_type):
         return accesses.count() > 0
     else:
         return False
+
+
 
 
 def bs_handle_read(request, resource_type, resource_id):
@@ -61,17 +64,17 @@ def bs_handle_read(request, resource_type, resource_id):
     return response
 
 
-def ga_handle_search(request, resource_type):
+def bs_handle_search(request, resource_type):
     '''
     handle FHIR search operation
     '''
-    args = request.args
-    data = {}
-    for i in args:
-        s = args[i]
-        data[i] = eval(s.encode())
+    # args = request.args
+    # data = {}
+    # for i in args:
+    #     s = args[i]
+    #     data[i] = eval(s.encode())
 
-    search_result = search_sets(resource_type, data)
+    search_result = get_resources(resource_type)
 
     search_result = json.dumps(search_result, separators=(',', ':'))
     if search_result is None:
