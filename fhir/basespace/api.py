@@ -13,7 +13,7 @@ BS_JSON_MIMETYPE = 'application/json'
 json_response = partial(Response, mimetype=BS_JSON_MIMETYPE)
 BS_XML_MIMETYPE = 'application/xml'
 xml_response = partial(Response, mimetype=BS_XML_MIMETYPE)
-API_BASE = 'https://api.basespace.illumina.com/v1pre3/users/current'
+API_BASE = 'https://api.basespace.illumina.com/v1pre3/'
 CONTENT_TYPE_HEADER = {'Content-Type': 'application/json; charset=UTF-8'}
 
 def verify_access(request, resource_type, access_type):

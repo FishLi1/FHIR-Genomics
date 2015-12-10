@@ -7,7 +7,7 @@ from util import json_response, xml_response, xml_bundle_response, xml_to_json, 
 from fhir_spec import SPECS, REFERENCE_TYPES
 from query_builder import QueryBuilder
 from indexer import index_resource
-import basespace
+import ttam
 import json
 from urlparse import urljoin
 from urllib import urlencode
@@ -92,7 +92,7 @@ class FHIRBundle(object):
     '''
     Represent a bundle in FHIR
     '''
-    def __init__(self, query, request, version_specific=False, basespace_resource=None):
+    def __init__(self, query, request, version_specific=False, ttam_resource=None):
         self.api_base = get_api_base()
         self.request_url = request.url
         self.data_format = request.format
@@ -104,7 +104,7 @@ class FHIRBundle(object):
                 offset(request.offset).all()
         self.resource_count = query.count()
 
-        if basespace_resource is not None:
+        if ttam_resource is not None:
             # 23andMe resource(s) are being requested here.
             # We need to figure out the paging properties for 23andme resources.
             # We preserve determinism here by lining all internal resources before
@@ -114,15 +114,14 @@ class FHIRBundle(object):
             # So a 4-offset is the same as a 0-offset of 23andMe resources,
             # and a 1-offset is also a 0-offset of 23andMe. And so forth).
             num_resources = len(self.resources)
-            basespace_offset = (request.offset - self.resource_count
+            ttam_offset = (request.offset - self.resource_count
                     if request.offset >= self.resource_count
                     else 0)
-            basespace_limit = request.count - num_resources
-            basespace_resources, basespace_count = basespace.api.\
-                bs_handle_read(basespace_resource, request.args, basespace_offset, basespace_limit)
-            self.resource_count += basespace_count
+            ttam_limit = request.count - num_resources
+            ttam_resources, ttam_count = ttam.get_many(ttam_resource, request.args, ttam_offset, ttam_limit)
+            self.resource_count += ttam_count
             if num_resources < request.count:
-                self.resources.extend(basespace_resources)
+                self.resources.extend(ttam_resources)
 
         self.next_url = (request.get_next_url()
                          if len(self.resources) + request.offset < self.resource_count
@@ -213,8 +212,8 @@ def handle_read(request, resource_type, resource_id):
     '''
     handle FHIR read operation
     '''
-    if resource_type in ('Patient', 'Sequence') :
-        resource = basespace.api.bs_handle_read(resource_type, resource_id)
+    if resource_type in ('Patient', 'Sequence') and resource_id.startswith('ttam_'):
+        resource = ttam.get_one(resource_type, resource_id)
     else:
         resource = find_latest_resource(resource_type, resource_id, owner_id=request.authorizer.email)
 
@@ -252,11 +251,11 @@ def handle_search(request, resource_type):
     '''
     query_builder = QueryBuilder(request.authorizer)
     search_query = query_builder.build_query(resource_type, request.args)
-    basespace_resource = None
-    if (resource_type in ('genomics', 'projects') and
-            g.basespace_client is not None):
-        basespace_resource = resource_type
-    resp_bundle = FHIRBundle(search_query, request, basespace_resource=basespace_resource)
+    ttam_resource = None
+    if (resource_type in ('Patient', 'Sequence') and
+            g.ttam_client is not None):
+        ttam_resource = resource_type
+    resp_bundle = FHIRBundle(search_query, request, ttam_resource=ttam_resource)
     return resp_bundle.as_response()
 
 

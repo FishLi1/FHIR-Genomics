@@ -38,7 +38,7 @@ def authorize_public_data(user):
     '''
     # find all resources owned by super user and replicate them
     for resource in Resource.query.filter_by(owner_id='super'):
-        db.make_transient(resource) 
+        db.make_transient(resource)
         resource.owner = user
         db.session.add(resource)
     # find all search param owned by super user and replicate them
@@ -91,7 +91,7 @@ def require_login(view):
             else:
                 redirect_arg = {'redirect': request.url}
                 return redirect('/?%s'% urlencode(redirect_arg))
-        return view(*args, **kwargs) 
+        return view(*args, **kwargs)
 
     return logged_in_view
 
@@ -101,7 +101,7 @@ def get_session():
     '''
     get associated session from `session_id` cookie
     '''
-    session_id = request.cookies.get('session_id') 
+    session_id = request.cookies.get('session_id')
     request.session = Session.query.filter_by(id=session_id).first()
 
 
@@ -123,7 +123,7 @@ def index():
         apps = [{ 'name': app.name, 'client_id': app.client_id }
             for app in App.query.filter_by(user_id=user.email).all()]
         can_import_ttam = TTAMClient.query.get(user.email) is None
-    
+
     return render_template('index.html', **locals())
 
 
@@ -197,13 +197,13 @@ def create_app():
     else:
         client_type = request.form['client_type']
         if client_type not in ('public', 'confidential'):
-            return BAD_REQUEST 
+            return BAD_REQUEST
         client_secret = (str(uuid.uuid4())
                 if client_type == 'confidential'
                 else None)
         client_id = rand_client_id()
         app = App(client_id=client_id,
-                client_secret=client_secret, 
+                client_secret=client_secret,
                 user=request.session.user,
                 redirect_uri=request.form['redirect_uri'],
                 launch_uri=request.form['launch_uri'],
@@ -247,7 +247,7 @@ def launch_app(client_id):
             .filter_by(user_id=user.email, client_id=client_id)
             .first())
     if app is None:
-        return NOT_FOUND 
+        return NOT_FOUND
     if request.method == 'GET':
         # prompt user to select a patient to launch
         # TODO make this more readable
